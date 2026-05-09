@@ -5,7 +5,7 @@ import random
 # --- 설정 및 초기화 ---
 st.set_page_config(page_title="오늘의 명언 & 커뮤니티", layout="centered")
 
-# 세션 상태 초기화 (st.st_session_state의 오타를 st.session_state로 수정)
+# 세션 상태 초기화
 if 'quotes' not in st.session_state:
     st.session_state.quotes = [
         {"author": "스티브 잡스", "text": "계속 갈구하라, 여전히 우직하게.", "likes": 5, "saved_by": []},
@@ -91,10 +91,10 @@ if st.session_state.logged_in:
     st.divider()
     st.subheader("📂 내가 저장한 명언")
     my_saved = [q for q in st.session_state.quotes if st.session_state.user_id in q['saved_by']]
-    if my_saved:
+    
+    # 이 부분의 들여쓰기를 수정했습니다.
+    if len(my_saved) > 0:
         for sq in my_saved:
             st.write(f"• {sq['text']} ({sq['author']})")
-    else:
-        st.write("아직 저장한 명언이 없습니다.")
     else:
         st.write("아직 저장한 명언이 없습니다.")
