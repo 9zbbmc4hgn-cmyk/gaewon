@@ -5,8 +5,8 @@ import random
 # --- 설정 및 초기화 ---
 st.set_page_config(page_title="오늘의 명언 & 커뮤니티", layout="centered")
 
-# 세션 상태 초기화 (데이터베이스 역할을 대신함)
-if 'quotes' not in st.st_session_state:
+# 세션 상태 초기화 (st.st_session_state의 오타를 st.session_state로 수정)
+if 'quotes' not in st.session_state:
     st.session_state.quotes = [
         {"author": "스티브 잡스", "text": "계속 갈구하라, 여전히 우직하게.", "likes": 5, "saved_by": []},
         {"author": "알베르트 아인슈타인", "text": "어제와 똑같이 살면서 다른 미래를 기대하는 것은 정신병 초기 증세이다.", "likes": 12, "saved_by": []}
@@ -25,7 +25,7 @@ if not st.session_state.logged_in:
         login_btn = st.form_submit_button("로그인")
         
         if login_btn:
-            if user_id and password: # 실제 구현 시에는 DB 검증 필요
+            if user_id and password: 
                 st.session_state.logged_in = True
                 st.session_state.user_id = user_id
                 st.rerun()
@@ -94,5 +94,7 @@ if st.session_state.logged_in:
     if my_saved:
         for sq in my_saved:
             st.write(f"• {sq['text']} ({sq['author']})")
+    else:
+        st.write("아직 저장한 명언이 없습니다.")
     else:
         st.write("아직 저장한 명언이 없습니다.")
