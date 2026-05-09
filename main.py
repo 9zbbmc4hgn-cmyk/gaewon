@@ -1,79 +1,69 @@
 import streamlit as st
-import pandas as pd
 import requests
+import pandas as pd
 
-# 페이지 설정
-st.set_page_config(page_title="LoL 데이터 센터", page_icon="⚔️", layout="wide")
+# --- 설정 및 API 키 ---
+# 실무에서는 st.secrets["RIOT_API_KEY"]를 사용하는 것이 안전합니다.
+RIOT_API_KEY = "YOUR_RIOT_API_KEY_HERE" 
 
-# 로고 및 타이틀
-st.title("🎮 League of Legends 전적 & 데이터 대시보드")
-st.markdown("---")
+st.set_page_config(page_title="LoL 전적 검색기", page_icon="🎯")
 
-# --- 사이드바: 소환사 검색 기능 ---
-st.sidebar.header("🔍 소환사 검색")
-summoner_name = st.sidebar.text_input("소환사명 입력", placeholder="예: Hide on bush")
-tag_line = st.sidebar.text_input("태그 입력", placeholder="예: KR1")
+# --- 함수 정의: 데이터 가져오기 ---
+def get_summoner_info(name, tag, api_key):
+    # 1. Account-V1을 통해 PUUID 가져오기
+    url = f"https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{name}/{tag}?api_key={api_key}"
+    res = requests.get(url)
+    return res.json() if res.status_code == 200 else None
 
-if st.sidebar.button("전적 불러오기"):
-    if summoner_name and tag_line:
-        st.sidebar.success(f"{summoner_name}#{tag_line} 데이터를 찾는 중...")
-        # 여기에 추후 Riot API 연동 코드를 추가할 수 있습니다.
-    else:
-        st.sidebar.error("이름과 태그를 모두 입력해주세요.")
+def get_match_ids(puuid, api_key, count=5):
+    # 2. 최근 매치 ID 리스트 가져오기 (5개)
+    url = f"https://asia.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count={count}&api_key={api_key}"
+    res = requests.get(url)
+    return res.json() if res.status_code == 200 else []
 
-# --- 메인 화면: 챔피언 정보 조회 ---
-st.header("🏆 챔피언 도감")
+# --- UI 부분 ---
+st.title("🏹 LoL 전적 검색 사이트")
+st.markdown("소환사명과 태그를 입력하여 최근 전적을 확인하세요.")
 
-@st.cache_data
-def get_champion_data():
-    # 최신 데이터 드래곤 버전 가져오기
-    version_url = "https://ddragon.leagueoflegends.com/api/versions.json"
-    version = requests.get(version_url).json()[0]
-    
-    # 전체 챔피언 데이터 가져오기
-    url = f"https://ddragon.leagueoflegends.com/cdn/{version}/data/ko_KR/champion.json"
-    response = requests.get(url).json()
-    return response['data'], version
-
-champions, current_version = get_champion_data()
-champion_names = sorted([champions[c]['name'] for c in champions])
-
-# 검색창 및 선택
-col1, col2 = st.columns([1, 2])
+col1, col2, col3 = st.columns([3, 1, 1])
 with col1:
-    selected_champ_name = st.selectbox("챔피언을 선택하세요", champion_names)
-
-# 선택된 챔피언 상세 정보 표시
-selected_id = [k for k, v in champions.items() if v['name'] == selected_champ_name][0]
-champ_info = champions[selected_id]
-
+    name_input = st.text_input("소환사 이름", placeholder="Hide on bush")
 with col2:
-    st.subheader(f"{selected_champ_name} : {champ_info['title']}")
-    st.write(f"**역할:** {', '.join(champ_info['tags'])}")
-    st.write(champ_info['blurb'])
+    tag_input = st.text_input("태그", placeholder="KR1")
+with col3:
+    st.write(" ") # 간격 맞춤
+    search_btn = st.button("검색")
 
-# 챔피언 이미지 출력
-img_url = f"https://ddragon.leagueoflegends.com/cdn/{current_version}/img/champion/{selected_id}.png"
-col1.image(img_url, width=200)
+if search_btn:
+    if not RIOT_API_KEY or RIOT_API_KEY == "YOUR_RIOT_API_KEY_HERE":
+        st.error("Riot API Key를 설정해야 실제 데이터를 불러올 수 있습니다!")
+    else:
+        with st.spinner('데이터를 불러오는 중...'):
+            user_data = get_summoner_info(name_input, tag_input, RIOT_API_KEY)
+            
+            if user_data and 'puuid' in user_data:
+                puuid = user_data['puuid']
+                st.success(f"**{user_data['gameName']}#{user_data['tagLine']}** 님을 찾았습니다!")
+                
+                # 매치 기록 가져오기
+                match_ids = get_match_ids(puuid, RIOT_API_KEY)
+                
+                if match_ids:
+                    st.subheader(" 최근 5게임 매치 기록")
+                    for m_id in match_ids:
+                        # 매치 상세 정보 (간략화)
+                        st.info(f"매치 ID: {m_id} - 상세 정보 분석 중...")
+                        # 상세 데이터는 match/v5/matches/{m_id} 를 통해 가져와서 가공 가능
+                else:
+                    st.warning("최근 게임 기록이 없습니다.")
+            else:
+                st.error("소환사를 찾을 수 없습니다. 이름과 태그를 다시 확인해주세요.")
 
-# --- 통계 시각화 (더미 데이터 예시) ---
-st.markdown("---")
-st.header("📊 현재 메타 분석 (샘플)")
-
-data = {
-    'Champion': ['Aatrox', 'Ahri', 'Jinx', 'Lee Sin', 'Thresh'],
-    'Pick Rate (%)': [12.5, 8.4, 15.2, 20.1, 10.7],
-    'Win Rate (%)': [51.2, 49.8, 52.5, 48.9, 50.1]
-}
-df = pd.DataFrame(data)
-
-col_a, col_b = st.columns(2)
-with col_a:
-    st.write("### 픽률 순위")
-    st.bar_chart(df.set_index('Champion')['Pick Rate (%)'])
-with col_b:
-    st.write("### 승률 데이터")
-    st.dataframe(df, use_container_width=True)
-
-st.divider()
-st.caption(f"Data Source: Riot Games Data Dragon (Ver {current_version})")
+# --- 가이드 (API 키 발급 방법) ---
+with st.expander("ℹ️ 실제 전적 데이터가 나오게 하려면?"):
+    st.write("""
+    1. [Riot Developer Portal](https://developer.riotgames.com/) 접속 및 로그인
+    2. 'Development API Key'를 복사합니다.
+    3. 코드의 `RIOT_API_KEY = "..."` 부분에 붙여넣으세요.
+    4. (주의) 개발용 키는 24시간마다 만료되므로 다시 갱신해야 합니다.
+    """)
